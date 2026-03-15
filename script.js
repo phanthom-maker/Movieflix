@@ -1,5 +1,5 @@
 // TMDB API Configuration
-const API_KEY = 'a6bde5e33e5ce8771488a61fc6ee7d34'; // Free public API key
+const API_KEY = 'abd1898a9e40cdf0414797825e97bc45'; // Your API key
 const BASE_URL = 'https://api.themoviedb.org/3';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/';
 const BACKDROP_SIZE = 'original';
@@ -29,13 +29,18 @@ async function fetchMovies() {
     try {
         showLoadingState();
         
-        // Fetch different categories
+        // Fetch different categories with your API key
         const [trending, popular, topRated, upcoming] = await Promise.all([
             fetch(`${BASE_URL}/trending/movie/week?api_key=${API_KEY}`),
             fetch(`${BASE_URL}/movie/popular?api_key=${API_KEY}`),
             fetch(`${BASE_URL}/movie/top_rated?api_key=${API_KEY}`),
             fetch(`${BASE_URL}/movie/upcoming?api_key=${API_KEY}`)
         ]);
+
+        // Check if responses are OK
+        if (!trending.ok || !popular.ok || !topRated.ok || !upcoming.ok) {
+            throw new Error('Failed to fetch movies');
+        }
 
         // Parse responses
         const trendingData = await trending.json();
@@ -75,13 +80,13 @@ function displayMovies(category, movies) {
     if (!grid) return;
 
     grid.innerHTML = movies.map(movie => `
-        <div class="movie-card" onclick="openMovieModal(${JSON.stringify(movie).replace(/"/g, '&quot;')})">
+        <div class="movie-card" onclick='openMovieModal(${JSON.stringify(movie)})'>
             <img src="${movie.poster_path ? IMAGE_BASE_URL + 'w500' + movie.poster_path : 'https://via.placeholder.com/500x750?text=No+Image'}" 
-                 alt="${movie.title}">
+                 alt="${movie.title || movie.name}">
             <div class="movie-card-overlay">
-                <div class="movie-card-title">${movie.title}</div>
+                <div class="movie-card-title">${movie.title || movie.name}</div>
                 <div class="movie-card-rating">
-                    <i class="fas fa-star"></i> ${movie.vote_average.toFixed(1)}
+                    <i class="fas fa-star"></i> ${movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}
                 </div>
             </div>
         </div>
@@ -91,22 +96,43 @@ function displayMovies(category, movies) {
 // Set hero section movie
 function setHeroMovie(movie) {
     const backdropPath = movie.backdrop_path ? IMAGE_BASE_URL + BACKDROP_SIZE + movie.backdrop_path : '';
-    heroSection.style.backgroundImage = `url('${backdropPath}')`;
-    document.getElementById('hero-title').textContent = movie.title;
-    document.getElementById('hero-description').textContent = movie.overview.substring(0, 200) + '...';
+    const title = movie.title || movie.name;
+    const overview = movie.overview || 'No description available.';
+    
+    if (backdropPath) {
+        heroSection.style.backgroundImage = `url('${backdropPath}')`;
+    } else {
+        heroSection.style.backgroundImage = 'linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url("https://via.placeholder.com/1920x1080?text=MovieFlix")';
+    }
+    
+    document.getElementById('hero-title').textContent = title;
+    document.getElementById('hero-description').textContent = overview.substring(0, 200) + (overview.length > 200 ? '...' : '');
 }
 
 // Open movie modal
 window.openMovieModal = function(movie) {
     const modal = document.getElementById('movie-modal');
-    document.getElementById('modal-backdrop').src = movie.backdrop_path ? 
-        IMAGE_BASE_URL + BACKDROP_SIZE + movie.backdrop_path : 
-        'https://via.placeholder.com/1280x720?text=No+Image';
-    document.getElementById('modal-title').textContent = movie.title;
-    document.getElementById('modal-rating').innerHTML = `<i class="fas fa-star"></i> ${movie.vote_average.toFixed(1)}`;
-    document.getElementById('modal-year').textContent = movie.release_date ? movie.release_date.split('-')[0] : 'N/A';
-    document.getElementById('modal-duration').innerHTML = '<i class="far fa-clock"></i> 2h 10m'; // Mock duration
-    document.getElementById('modal-overview').textContent = movie.overview || 'No description available.';
+    const title = movie.title || movie.name;
+    const overview = movie.overview || 'No description available.';
+    const releaseDate = movie.release_date || movie.first_air_date || 'N/A';
+    const voteAverage = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
+    
+    // Set backdrop image
+    const backdropPath = movie.backdrop_path ? IMAGE_BASE_URL + BACKDROP_SIZE + movie.backdrop_path : '';
+    document.getElementById('modal-backdrop').src = backdropPath || 'https://via.placeholder.com/1280x720?text=No+Image';
+    
+    // Set movie info
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-rating').innerHTML = `<i class="fas fa-star"></i> ${voteAverage}`;
+    document.getElementById('modal-year').textContent = releaseDate !== 'N/A' ? releaseDate.split('-')[0] : 'N/A';
+    
+    // Calculate mock duration (since TMDB doesn't provide this for all movies)
+    const randomDuration = Math.floor(Math.random() * (150 - 90 + 1) + 90); // 90-150 minutes
+    const hours = Math.floor(randomDuration / 60);
+    const minutes = randomDuration % 60;
+    document.getElementById('modal-duration').innerHTML = `<i class="far fa-clock"></i> ${hours}h ${minutes}m`;
+    
+    document.getElementById('modal-overview').textContent = overview;
     
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
@@ -163,6 +189,11 @@ function setupEventListeners() {
     document.querySelector('.fa-bell').addEventListener('click', () => {
         alert('No new notifications');
     });
+
+    // User profile
+    document.querySelector('.fa-user-circle').addEventListener('click', () => {
+        alert('Profile feature coming soon!');
+    });
 }
 
 // Loading state
@@ -207,3 +238,39 @@ document.addEventListener('keydown', (e) => {
         document.body.style.overflow = 'auto';
     }
 });
+
+// Add some additional styling for better UX
+const style = document.createElement('style');
+style.textContent = `
+    .loading {
+        color: #e50914;
+        font-size: 18px;
+        text-align: center;
+        padding: 50px;
+        width: 100%;
+    }
+    
+    .movie-card {
+        cursor: pointer;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .movie-card:hover {
+        transform: scale(1.1);
+        z-index: 100;
+        box-shadow: 0 0 20px rgba(229, 9, 20, 0.5);
+    }
+    
+    .modal-backdrop {
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+        opacity: 0.8;
+    }
+    
+    .rating i, .duration i {
+        margin-right: 5px;
+        color: #e50914;
+    }
+`;
+document.head.appendChild(style);
